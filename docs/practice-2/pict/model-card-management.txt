@@ -1,0 +1,19 @@
+# Card-Management: обязательная выборка карт GET /api/cards
+# matching_cards и deleted_cards задают подготовленное состояние БД
+
+page_limit: default_50, one, ten, hundred
+offset_position: zero, within_results, equal_result_count, above_result_count
+status_filter: omitted, ACTIVE, INACTIVE, BLOCKED
+bin_filter: omitted, matching, nonmatching
+matching_cards: zero, one, many
+deleted_cards: absent, present
+
+# Несовпадающий BIN не может дать подходящие неудалённые карты
+IF [bin_filter] = "nonmatching" THEN [matching_cards] = "zero";
+
+# При пустой выборке нет позиции внутри результата и отдельной позиции конца
+IF [matching_cards] = "zero" THEN [offset_position] <> "within_results"
+    AND [offset_position] <> "equal_result_count";
+
+# При одной подходящей карте нет ненулевой позиции строго внутри результата
+IF [matching_cards] = "one" THEN [offset_position] <> "within_results";
