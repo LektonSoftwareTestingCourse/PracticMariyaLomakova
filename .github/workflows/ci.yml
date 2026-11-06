@@ -71,8 +71,23 @@ jobs:
     needs: [ base-lint, build-common ]
 
     strategy:
+      fail-fast: false
       matrix:
-        service: [ gateway, switch, authorization, card-management, terminal-simulator, merchant-acquirer, transaction-logger ]
+        include:
+        - service: gateway
+          jacoco: true
+        - service: switch
+          jacoco: true
+        - service: authorization
+          jacoco: true
+        - service: card-management
+          jacoco: true
+        - service: terminal-simulator
+          jacoco: false
+        - service: merchant-acquirer
+          jacoco: false
+        - service: transaction-logger
+          jacoco: false
 
     steps:
     - name: Checkout repository
@@ -85,11 +100,16 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
-    - name: Run java linter
-      run: mvn -f services/pom.xml -P${{ matrix.service }} checkstyle:check
+    - name: Run unit tests, Checkstyle and coverage checks
+      run: mvn -B -ntp -f services/pom.xml -P${{ matrix.service }} clean verify
 
-    - name: Build services (tests skipped until students add them)
-      run: mvn -f services/pom.xml -P${{ matrix.service }} install -Dcheckstyle.skip=true -DskipTests
+    - name: Upload JaCoCo report
+      if: ${{ always() && matrix.jacoco }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: jacoco-report-${{ matrix.service }}
+        path: services/${{ matrix.service }}/target/site/jacoco/
+        if-no-files-found: error
 
   frontend-dashboard:
     runs-on: ubuntu-latest

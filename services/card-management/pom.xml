@@ -77,7 +77,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Test -->
+        <!-- JUnit 5, параметризованные тесты, Mockito и AssertJ; версии управляются Spring Boot. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -103,13 +103,6 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
-
 
         <!-- Для генерации случайных данных (тесты) -->
         <dependency>
@@ -152,16 +145,12 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>getClasspathFilenames</id>
-                        <goals>
-                            <goal>properties</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -202,6 +191,7 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <configuration>
                     <excludeGeneratedSources>true</excludeGeneratedSources>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 </configuration>
             </plugin>
             <plugin>
@@ -211,10 +201,7 @@
                     <excludes>
                         <exclude>**/load/**/*.java</exclude>
                     </excludes>
-                    <argLine>
-                        -javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/1.15.11/byte-buddy-agent-1.15.11.jar
-                        -XX:+EnableDynamicAgentLoading
-                    </argLine>
+                    <argLine>@{jacocoArgLine} "-javaagent:${org.mockito:mockito-core:jar}"</argLine>
                 </configuration>
             </plugin>
         </plugins>
