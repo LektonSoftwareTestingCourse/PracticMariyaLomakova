@@ -1,0 +1,175 @@
+name: smp-api-tests
+
+x-environment: &environment
+  SERVER_PORT: '8080'
+  PORT: '8080'
+  JAVA_TOOL_OPTIONS: '-Xms32m -Xmx192m -XX:MaxMetaspaceSize=160m'
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: '5432'
+  POSTGRES_DB: smp_api
+  POSTGRES_USER: smp
+  POSTGRES_PASSWORD: smp
+  SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: '1000'
+  SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_USERNAME: smp
+  SPRING_RABBITMQ_PASSWORD: smp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: smp_api
+      POSTGRES_USER: smp
+      POSTGRES_PASSWORD: smp
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U smp -d smp_api']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: smp
+      RABBITMQ_DEFAULT_PASS: smp
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  card-management:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: card-management
+    environment:
+      <<: *environment
+      SPRING_FLYWAY_TABLE: card_schema_history
+      SPRING_FLYWAY_IGNORE_MIGRATION_PATTERNS: '*:missing'
+      METRICS_SCHEDULER_ENABLED: 'false'
+    ports: ['127.0.0.1:18081:8080']
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+  authorization:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: authorization
+    environment:
+      <<: *environment
+      CARD_MGMT_URL: http://cards-proxy:8080
+      POSTGRES_HOST: authorization-postgres
+      BIN_LOOKUP_URL: http://bin-lookup:8080
+    ports: ['127.0.0.1:18083:8080']
+    depends_on:
+      cards-proxy: {condition: service_started}
+      bin-lookup: {condition: service_started}
+      authorization-postgres: {condition: service_healthy}
+  authorization-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: smp_api
+      POSTGRES_USER: smp
+      POSTGRES_PASSWORD: smp
+    volumes: ['authorization-database:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U smp -d smp_api']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  cards-proxy:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: api-tests
+    entrypoint: ['java', '-cp', 'app.jar', 'com.processing.api.support.HttpFaultProxy']
+    environment: *environment
+    ports: ['127.0.0.1:18099:8080']
+    depends_on: [card-management]
+  transaction-logger:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: transaction-logger
+    environment: *environment
+    ports: ['127.0.0.1:18088:8080']
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+  switch:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: switch
+    environment:
+      <<: *environment
+      AUTH_URL: http://authorization:8080
+      LOGGER_URL: http://transaction-logger:8080
+      MERCHANT_URL: http://merchant-acquirer:8080
+    ports: ['127.0.0.1:18082:8080']
+    depends_on: [authorization, transaction-logger]
+  bin-lookup:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: bin-lookup
+    environment: *environment
+    ports: ['127.0.0.1:18096:8080']
+  terminal-simulator:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: terminal-simulator
+    environment:
+      <<: *environment
+      GATEWAY_URL: http://gateway:8080
+      CARD_MGMT_URL: http://card-management:8080
+      SIMULATOR_CARDSAMOUNT: '8'
+    ports: ['127.0.0.1:18085:8080']
+    depends_on: [card-management]
+  merchant-acquirer:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: merchant-acquirer
+    environment:
+      <<: *environment
+      GATEWAY_URL: http://gateway:8080
+      SPRING_FLYWAY_TABLE: merchant_schema_history
+      SPRING_FLYWAY_BASELINE_VERSION: '0'
+    ports: ['127.0.0.1:18084:8080']
+    depends_on:
+      postgres: {condition: service_healthy}
+  gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-tests/Dockerfile
+      args:
+        SERVICE: gateway
+    environment:
+      <<: *environment
+      SWITCH_URL: http://switch:8080
+      AUTH_URL: http://authorization:8080
+      LOGGER_URL: http://transaction-logger:8080
+      CARD_MGMT_URL: http://card-management:8080
+      TERMINAL_SIM_URL: http://terminal-simulator:8080
+      MERCHANT_SIM_URL: http://merchant-acquirer:8080
+      SPRING_CLOUD_GATEWAY_HTTPCLIENT_CONNECT_TIMEOUT: '1000'
+      TRANSACTIONS_RATE_LIMIT_CAPACITY: '${API_RATE_CAPACITY:-100}'
+      TRANSACTIONS_RATE_LIMIT_REFILL_PER_SECOND: '${API_RATE_REFILL:-100}'
+    ports: ['127.0.0.1:18080:8080']
+    depends_on: [switch, terminal-simulator, merchant-acquirer]
+
+volumes:
+  database:
+  authorization-database:

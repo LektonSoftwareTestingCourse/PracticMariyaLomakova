@@ -7,15 +7,28 @@ import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.amqp.support.converter.SimpleMessageConverter;
+
+import java.util.List;
 
 /**
- * RabbitMQ topology configuration for Transaction Logger.
+ * Настройка топологии RabbitMQ для Transaction Logger.
  *
- * <p>Mirrors the Switch-side configuration to declare the same
- * exchange, queue, and bindings for idempotent setup.</p>
+ * Повторяет настройки Switch: объявляет те же обменник, очередь
+ * и привязки для идемпотентной настройки топологии.
  */
 @Configuration
 public class RabbitMQConfig {
+
+    /** Принимает сериализуемый DTO транзакции, который отправляет Switch. */
+    @Bean
+    public SimpleMessageConverter transactionMessageConverter() {
+        SimpleMessageConverter converter = new SimpleMessageConverter();
+        converter.setAllowedListPatterns(List.of(
+                "com.processing.common.dto.transactionlogger.*", "java.util.UUID",
+                "java.math.*", "java.time.*", "java.lang.*"));
+        return converter;
+    }
 
     public static final String EXCHANGE = "smp.transactions";
     public static final String ROUTING_KEY = "transaction.log";
@@ -31,11 +44,11 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Durable main queue with dead-letter configuration.
+     * Основная сохраняемая очередь с настройкой обработки недоставленных сообщений.
      *
-     * <p>After 3 delivery attempts (x-max-delivery) the message
-     * goes to DLX {@value #DLX_EXCHANGE}. Mirrors the Switch-side
-     * declaration for idempotent topology setup.</p>
+     * После трёх попыток доставки (x-max-delivery) сообщение
+     * отправляется в DLX {@value #DLX_EXCHANGE}. Объявление совпадает
+     * с настройкой Switch для идемпотентного создания топологии.
      */
     @Bean
     public Queue transactionLogQueue() {

@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "required": ["mti", "stan", "rrn", "authCode", "responseCode", "status", "processingTimeMs"],
+  "properties": {
+    "mti": {"type": "string", "pattern": "^[0-9]{4}$"},
+    "stan": {"type": "string", "pattern": "^[0-9]{6}$"},
+    "rrn": {"type": "string", "pattern": "^[0-9]{12}$"},
+    "authCode": {"type": "string", "pattern": "^[A-Z0-9]{6}$"},
+    "responseCode": {"enum": ["00"]},
+    "status": {"enum": ["APPROVED"]},
+    "processingTimeMs": {"type": "integer", "minimum": 0},
+    "declineReason": {"type": "null"}
+  }
+}

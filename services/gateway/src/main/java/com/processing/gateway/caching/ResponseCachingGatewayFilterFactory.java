@@ -45,7 +45,8 @@ public class ResponseCachingGatewayFilterFactory
             if (request.getMethod() != HttpMethod.GET) {
                 return chain.filter(exchange).doFinally(signalType -> {
                     if (exchange.getResponse().getStatusCode() == HttpStatus.OK
-                        || exchange.getResponse().getStatusCode() == HttpStatus.CREATED) {
+                        || exchange.getResponse().getStatusCode() == HttpStatus.CREATED
+                        || exchange.getResponse().getStatusCode() == HttpStatus.NO_CONTENT) {
                         cache.clear();
                         gatewayMetrics.recordCardsCacheInvalidation();
                     }

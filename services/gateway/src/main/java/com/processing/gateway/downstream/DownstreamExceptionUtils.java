@@ -5,7 +5,9 @@ import reactor.netty.http.client.PrematureCloseException;
 
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpTimeoutException;
 
@@ -20,7 +22,9 @@ public final class DownstreamExceptionUtils {
         while (current != null) {
             if (current instanceof ResourceAccessException
                     || current instanceof ConnectException
+                    || current instanceof NoRouteToHostException
                     || current instanceof SocketTimeoutException
+                    || current instanceof UnknownHostException
                     || current instanceof HttpTimeoutException
                     || current instanceof HttpConnectTimeoutException
                     || current instanceof PrematureCloseException) {
