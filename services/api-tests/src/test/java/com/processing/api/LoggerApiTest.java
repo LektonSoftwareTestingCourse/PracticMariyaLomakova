@@ -6,6 +6,7 @@ import io.restassured.response.Response;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -16,6 +17,48 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 class LoggerApiTest {
+    @ParameterizedTest
+    @CsvSource({
+            "2026-06-01T12:00:00.123456123Z,2026-06-01T12:00:00.123456Z",
+            "2026-06-01T12:00:00.123456499Z,2026-06-01T12:00:00.123456Z",
+            "2026-06-01T12:00:00.123456500Z,2026-06-01T12:00:00.123457Z",
+            "2026-06-01T12:00:00.123456789Z,2026-06-01T12:00:00.123457Z",
+            "2026-06-01T12:00:00.999999500Z,2026-06-01T12:00:01Z"
+    })
+    void shouldKeepRepeatedDeliveryWhenTimestampHasNanoseconds(String timestamp, String storedTimestamp) {
+        //Given
+        String pan = Data.createCard().get("pan").toString();
+        Map<String, Object> tx = Data.transaction(pan);
+        tx.put("transmissionDateTime", timestamp);
+        Data.store(tx);
+        //When
+        Response response = given().spec(Api.request("logger")).body(tx).when().post("/api/internal/log");
+        //Then
+        response.then().statusCode(200).body("id", equalTo(tx.get("id")))
+                .body("transmissionDateTime", equalTo(storedTimestamp));
+        Data.search(pan).then().statusCode(200).body("total", equalTo(1))
+                .body("transactions[0].id", equalTo(tx.get("id")))
+                .body("transactions[0].transmissionDateTime", equalTo(storedTimestamp));
+    }
+
+    @Test
+    void shouldRejectRepeatedDeliveryWhenBusinessTimestampChangesByOneMicrosecond() {
+        //Given
+        String pan = Data.createCard().get("pan").toString();
+        Map<String, Object> tx = Data.transaction(pan);
+        tx.put("transmissionDateTime", "2026-06-01T12:00:00.123456789Z");
+        Data.store(tx);
+        tx.put("transmissionDateTime", "2026-06-01T12:00:00.123457789Z");
+        //When
+        Response response = given().spec(Api.request("logger")).body(tx).when().post("/api/internal/log");
+        //Then
+        response.then().statusCode(409).body("serviceName", equalTo("transaction-logger"))
+                .body("error", equalTo("Transaction conflict")).body("message", containsString(tx.get("id").toString()));
+        Data.search(pan).then().statusCode(200).body("total", equalTo(1))
+                .body("transactions[0].id", equalTo(tx.get("id")))
+                .body("transactions[0].transmissionDateTime", equalTo("2026-06-01T12:00:00.123457Z"));
+    }
+
     @Test
     void shouldKeepOneOriginalRecordWhenDeliveryIsRepeated() {
         //Given

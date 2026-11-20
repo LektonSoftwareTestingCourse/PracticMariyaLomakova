@@ -18,8 +18,8 @@
 | `POST /api/internal/route` (Switch) | 200, 400 | 2 | Подтверждено | `AuthorizationApiTest`, `ContractEdgesApiTest` |
 | `POST /api/internal/authorize` (Authorization) | 200, 400, 403, 404, 422, 503 | 31 | Подтверждено | `AuthorizationApiTest`, `DependencyFailuresApiTest`, `ContractEdgesApiTest` |
 | `POST /api/internal/rollback` (Authorization) | 200, 400, 404, 409, 503 | 12 | Подтверждено | `AuthorizationApiTest`, `DependencyFailuresApiTest`, `ContractEdgesApiTest` |
-| `POST /api/internal/log` (Logger) | 201, 200, 400, 405, 409, 503 | 49 | Подтверждено | `LoggerApiTest`, `FaultApiTest` |
-| `GET /api/transactions/search` | 200, 400, 503 | 55 | Подтверждено | `SearchApiTest`, `StorageStatusesApiTest`, `DeliveryApiTest`, `LoggerApiTest`, `FaultApiTest` |
+| `POST /api/internal/log` (Logger) | 201, 200, 400, 405, 409, 503 | 55 | Подтверждено | `LoggerApiTest`, `FaultApiTest` |
+| `GET /api/transactions/search` | 200, 400, 503 | 61 | Подтверждено | `SearchApiTest`, `StorageStatusesApiTest`, `DeliveryApiTest`, `LoggerApiTest`, `FaultApiTest` |
 | `GET /api/transactions/export` | 200, 400, 503 | 4 | Подтверждено | `SearchApiTest`, `StorageStatusesApiTest`, `FaultApiTest` |
 | `GET /api/dashboard/stats` | 200, 503 (зависимость, открытый circuit breaker) | 4 | Подтверждено | `OperationsApiTest`, `StorageStatusesApiTest`, `FaultApiTest` |
 | `GET /api/dashboard/recent` | 200, 400, 503 | 7 | Подтверждено | `OperationsApiTest`, `StorageStatusesApiTest`, `FaultApiTest` |
@@ -44,7 +44,7 @@
 | `DependencyFailuresApiTest` | 20 | PASS |
 | `FaultApiTest` | 24 | PASS |
 | `GatewayValidationApiTest` | 56 | PASS |
-| `LoggerApiTest` | 48 | PASS |
+| `LoggerApiTest` | 54 | PASS |
 | `OperationsApiTest` | 41 | PASS |
 | `SearchApiTest` | 47 | PASS |
 | `StorageStatusesApiTest` | 16 | PASS |
@@ -120,6 +120,7 @@
 | D11 | Общий submission-guide называет практику 5 E2E и ручным запуском | Приложенное practice-05.md требует API и автоматический CI | Для этой работы принят приложенный файл. Создан отдельный автоматический workflow |
 | D12 | Удалённая карта должна перестать читаться | После GET, DELETE 204 и повторного GET Gateway возвращал старую ACTIVE-карту из кеша | Исправлена инвалидация кеша при 204. Перед исправлением API-тест упал на фактическом 200 вместо ожидаемого 404 |
 | D13 | Недоступность downstream должна давать 503 и учитываться circuit breaker | При остановленном Logger NoRouteToHostException приводил к 500, цепь не открывалась | Исправлен DownstreamExceptionUtils: сетевые ошибки маршрута и DNS распознаются как недоступность. HTTP-тест проверяет три отказа, Retry-After у открытой цепи и восстановление |
+| D14 | Повтор сообщения с тем же UUID и данными должен возвращать 200 | В CI время с 9 знаками после секунды округлялось в timestamp(6), а точное сравнение давало ложный 409 | Исправлен TransactionMapper: время сравнивается с округлением до микросекунд. Проверены округление вниз и вверх, перенос секунды и настоящий конфликт при изменении времени на 1 мкс |
 
 ## 5. Обоснование достаточности
 
