@@ -20,6 +20,8 @@ import java.time.Instant;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import org.springframework.web.bind.annotation.RequestBody;
@@ -65,7 +67,13 @@ public class AuthControllerImpl implements AuthController {
     })
     public ResponseEntity<AuthorizationResponse> authorize(@Valid @RequestBody AuthorizationRequest request) {
         Instant requestInputTime = Instant.now();
-        AuthorizationResponse response = authService.authorize(request, requestInputTime);
+        AuthorizationResponse response;
+        try {
+            response = authService.authorize(request, requestInputTime);
+        } catch (DataAccessException | TransactionException exception) {
+            log.error("Authorization storage transaction failed", exception);
+            response = DB_UNAVAILABLE.buildAuthorization(request, requestInputTime);
+        }
 
         boolean isApproved = response.status().equals(AuthorizationResponse.STATUS_APPROVED);
         HttpStatus httpStatus;
@@ -76,6 +84,7 @@ public class AuthControllerImpl implements AuthController {
             httpStatus = switch (declineReason) {
                 case REASON_CARD_NOT_FOUND -> HttpStatus.NOT_FOUND;
                 case REASON_SERVICE_UNAVAILABLE,
+                     REASON_DB_UNAVAILABLE,
                      REASON_RESERVATION_FAILED -> HttpStatus.SERVICE_UNAVAILABLE;
                 case REASON_INSUFFICIENT_FUNDS -> HttpStatus.UNPROCESSABLE_ENTITY;
                 case REASON_CARD_EXPIRED,

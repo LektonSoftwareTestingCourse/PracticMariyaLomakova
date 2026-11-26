@@ -51,6 +51,13 @@
             </modules>
         </profile>
 
+        <profile>
+            <id>api-tests</id>
+            <modules>
+                <module>api-tests</module>
+            </modules>
+        </profile>
+
         <!-- Профиль для сборки всех модулей (по умолчанию) -->
         <profile>
             <id>all</id>

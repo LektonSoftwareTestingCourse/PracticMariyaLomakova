@@ -7,6 +7,8 @@ import com.processing.transactionlogger.model.Transaction;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
@@ -102,7 +104,13 @@ public class TransactionMapper {
                 && Objects.equals(transaction.getDeclineReason(), request.declineReason())
                 && Objects.equals(transaction.getAuthCode(), request.authCode())
                 && Objects.equals(transaction.getProcessingTimeMs(), request.processingTimeMs())
-                && Objects.equals(transaction.getTransmissionDateTime(), request.transmissionDateTime());
+                && Objects.equals(roundToMicroseconds(transaction.getTransmissionDateTime()),
+                        roundToMicroseconds(request.transmissionDateTime()));
+    }
+
+    /** Поле timestamp(6) в PostgreSQL округляет время до ближайшей микросекунды. */
+    private static Instant roundToMicroseconds(Instant timestamp) {
+        return timestamp == null ? null : timestamp.plusNanos(500).truncatedTo(ChronoUnit.MICROS);
     }
 
     private static boolean compareBigDecimal(BigDecimal a, BigDecimal b) {

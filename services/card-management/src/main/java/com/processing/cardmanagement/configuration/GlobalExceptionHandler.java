@@ -6,17 +6,32 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse unreadableBody(HttpMessageNotReadableException exception) {
+        return new ErrorResponse("VALIDATION_ERROR", "Request body must be valid JSON",
+                Instant.now(), serviceName, null);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse invalidParameter(MethodArgumentTypeMismatchException exception) {
+        return new ErrorResponse("VALIDATION_ERROR", exception.getName() + ": invalid parameter value",
+                Instant.now(), serviceName, null);
+    }
 
     @Value("${app.service-name}")
     private String serviceName;
@@ -63,7 +78,7 @@ public class GlobalExceptionHandler {
             .findFirst();
 
         var errorMessage = fieldError
-            .map(FieldError::getDefaultMessage)
+            .map(error -> error.getField() + ": " + error.getDefaultMessage())
             .orElse("Constraint violation");
 
         if (fieldError.isEmpty()) {
