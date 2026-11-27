@@ -35,10 +35,26 @@
         <jacocoArgLine/>
         <!-- E2E require docker compose; enabled via -Pe2e-tests -->
         <skipE2eTests>true</skipE2eTests>
+        <skipITs>true</skipITs>
     </properties>
 
 
     <profiles>
+        <profile>
+            <id>integration-tests</id>
+            <properties>
+                <skipITs>false</skipITs>
+            </properties>
+            <modules>
+                <module>common</module>
+                <module>card-management</module>
+                <module>authorization</module>
+                <module>transaction-logger</module>
+                <!-- Сквозной тест в модуле Switch использует JAR-файлы сервисов, собранных ранее. -->
+                <module>switch</module>
+            </modules>
+        </profile>
+
         <!-- Unit-тесты четырёх сервисов без E2E-модуля. -->
         <profile>
             <id>unit-tests</id>
@@ -204,6 +220,20 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <configuration>
+                        <skipITs>${skipITs}</skipITs>
+                        <failIfNoTests>true</failIfNoTests>
+                        <includes>
+                            <include>**/*IT.java</include>
+                        </includes>
+                        <systemPropertyVariables>
+                            <junit.jupiter.execution.parallel.enabled>false</junit.jupiter.execution.parallel.enabled>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
                 <!-- Модули явно подключают плагины из этого блока. -->
                 <plugin>
                     <groupId>org.jacoco</groupId>

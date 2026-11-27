@@ -1,0 +1,49 @@
+name: Practice 6 integration tests
+
+on:
+  push:
+    branches: ['practice-6-*']
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: services/**/pom.xml
+      - name: Run the complete suite twice on this runner
+        shell: bash
+        env:
+          JAVA_TOOL_OPTIONS: '-Dapi.version=1.44'
+        run: |
+          result=0
+          for run in 1 2; do
+            output="target/practice-6/ci/run-$run"
+            mkdir -p "$output"
+            if ! mvn -B -ntp -f services/pom.xml -Pintegration-tests clean verify 2>&1 | tee "$output/maven.log"; then
+              result=1
+            fi
+            for module in card-management authorization transaction-logger switch; do
+              reports="services/$module/target/failsafe-reports"
+              if compgen -G "$reports/TEST-*.xml" >/dev/null; then
+                cp -R "$reports" "$output/$module"
+              else
+                echo "Missing Failsafe XML reports for $module in run $run" >&2
+                result=1
+              fi
+            done
+          done
+          exit "$result"
+      - name: Upload both sets of reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: practice-6-integration-reports
+          path: target/practice-6/ci/
+          if-no-files-found: error
